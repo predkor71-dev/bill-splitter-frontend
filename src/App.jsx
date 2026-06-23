@@ -39,7 +39,6 @@ function App() {
   const COLORS = ['#3182ce', '#38a169', '#dd6b20', '#e53e3e', '#805ad5', '#319795'];
   const CATEGORIES = ["🍟 Еда", "🚗 Транспорт", "🏠 Жилье", "🎉 Досуг", "🛒 Покупки", "Другое"];
 
-  // Переменная API_URL берется из Vercel (VITE_API_URL) или локально
   const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   const fetchMyGroups = async () => {
@@ -79,7 +78,7 @@ function App() {
   useEffect(() => { fetchGroupData(); }, [currentGroup]);
 
   const handleDeleteGroup = async (groupId, title) => {
-    if (window.confirm(`Вы уверены, что хотите НАВСЕГДА удалить группу "${title}"?`)) {
+    if (window.confirm(`Удалить группу "${title}"?`)) {
       const res = await fetch(`${API_URL}/api/groups/delete/${groupId}`, { method: 'DELETE' });
       if (res.ok) { setCurrentGroup(null); fetchMyGroups(); }
     }
@@ -104,7 +103,7 @@ function App() {
       const parts = Object.keys(exactAmounts).map(id => ({ user_id: parseInt(id), amount: parseFloat(exactAmounts[id] || 0) })).filter(p => p.amount > 0);
       const totalExact = parts.reduce((acc, curr) => acc + curr.amount, 0);
       if (parts.length === 0) return alert("Укажите суммы!");
-      if (Math.abs(totalExact - parseFloat(amount)) > 0.01) return alert(`Сумма долей (${totalExact}₽) не сходится!`);
+      if (Math.abs(totalExact - parseFloat(amount)) > 0.01) return alert(`Сумма долей не сходится!`);
       payloadParticipants = parts;
     }
 
@@ -123,7 +122,7 @@ function App() {
   };
 
   const deleteExpense = async (id) => {
-    if (window.confirm("Удалить этот расход навсегда?")) {
+    if (window.confirm("Удалить этот расход?")) {
         const res = await fetch(`${API_URL}/api/expenses/delete/${id}`, { method: 'DELETE' });
         if (res.ok) fetchGroupData();
     }
@@ -154,41 +153,65 @@ function App() {
 
   if (!user) return (
     <div className="app-container" style={{maxWidth: '450px', marginTop: '100px'}}>
-      <h1>💰 Bill Splitter</h1>
-      <form onSubmit={async (e) => {
-        e.preventDefault(); const endpoint = isRegister ? 'register' : 'login';
-        const res = await fetch(`${API_URL}/api/${endpoint}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(isRegister ? {username: regName, email, password: pass, phone: phone} : {email, password: pass})
-        });
-        const data = await res.json();
-        if (data.status === 'success') {
-          const u = { id: data.user_id, name: data.username, email: data.email }; setUser(u); localStorage.setItem('user', JSON.stringify(u));
-        } else alert(data.message);
-      }}>
-        {isRegister && <input type="text" placeholder="Имя" onChange={e=>setRegName(e.target.value)} required />}
-        {isRegister && <input type="tel" placeholder="Телефон" onChange={e=>setPhone(e.target.value)} required />}
-        <input type="email" placeholder="Email" onChange={e=>setEmail(e.target.value)} required />
-        <input type="password" placeholder="Пароль" onChange={e=>setPass(e.target.value)} required />
-        <button type="submit">{isRegister ? 'Регистрация' : 'Войти'}</button>
-      </form>
+      <h1 style={{justifyContent: 'center', marginBottom: '24px'}}>💰 Bill Splitter</h1>
+      <div className="card" style={{border: 'none', padding: 0}}>
+        <h3 style={{textAlign: 'center', marginBottom: '20px', color: '#4a5568'}}>{isRegister ? 'Создать аккаунт' : 'Добро пожаловать'}</h3>
+        <form onSubmit={async (e) => {
+          e.preventDefault(); const endpoint = isRegister ? 'register' : 'login';
+          const res = await fetch(`${API_URL}/api/${endpoint}`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(isRegister ? {username: regName, email, password: pass, phone: phone} : {email, password: pass})
+          });
+          const data = await res.json();
+          if (data.status === 'success') {
+            const u = { id: data.user_id, name: data.username, email: data.email }; setUser(u); localStorage.setItem('user', JSON.stringify(u));
+          } else alert(data.message);
+        }}>
+          {isRegister && <input type="text" placeholder="Ваше имя" onChange={e=>setRegName(e.target.value)} required />}
+          {isRegister && <input type="tel" placeholder="Номер телефона (для СБП)" onChange={e=>setPhone(e.target.value)} required />}
+          <input type="email" placeholder="Электронная почта" onChange={e=>setEmail(e.target.value)} required />
+          <input type="password" placeholder="Пароль" onChange={e=>setPass(e.target.value)} required />
+          <button type="submit" style={{marginTop: '15px'}}>{isRegister ? 'Зарегистрироваться' : 'Войти в систему'}</button>
+        </form>
+        <p onClick={()=>setIsRegister(!isRegister)} style={{cursor:'pointer', color:'#3182ce', marginTop:20, textAlign: 'center', fontSize: '14px', fontWeight: '500'}}>
+          {isRegister ? 'Уже есть аккаунт? Войти' : 'Еще нет аккаунта? Зарегистрироваться'}
+        </p>
+      </div>
     </div>
   );
 
   if (!currentGroup) return (
     <div className="app-container" style={{maxWidth: '800px'}}>
-      <h1>📋 Мои группы</h1>
-      <button onClick={()=>{setUser(null); localStorage.removeItem('user'); window.location.reload();}}>Выйти</button>
-      <form onSubmit={async (e)=>{e.preventDefault(); await fetch(`${API_URL}/api/groups`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:newGroupTitle, creator_id:user.id})}); setNewGroupTitle(''); fetchMyGroups()}}>
-        <input type="text" placeholder="Название группы" value={newGroupTitle} onChange={e=>setNewGroupTitle(e.target.value)} required />
-        <button type="submit">+ Создать</button>
-      </form>
-      {myGroups.map(g => (
-        <div key={g.id} className="card" onClick={()=>setCurrentGroup(g)}>
-          <h3>{g.title}</h3>
-          <span onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g.id, g.title); }}>❌</span>
-        </div>
-      ))}
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: '30px'}}>
+        <h1 style={{margin: 0}}>📋 Мои группы</h1>
+        <button onClick={()=>{setUser(null); localStorage.removeItem('user')}} className="btn-secondary" style={{width:'auto', padding: '10px 20px'}}>Выйти</button>
+      </div>
+
+      <div className="card" style={{marginBottom: '32px', background: '#f8fafc'}}>
+        <h3 style={{fontSize: '16px', marginBottom: '12px'}}>Создать новое финансовое пространство</h3>
+        <form onSubmit={async (e)=>{e.preventDefault(); await fetch(`${API_URL}/api/groups`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({title:newGroupTitle, creator_id:user.id})}); setNewGroupTitle(''); fetchMyGroups()}} style={{display:'flex', gap:12}}>
+          <input type="text" placeholder="Название группы" value={newGroupTitle} onChange={e=>setNewGroupTitle(e.target.value)} required style={{margin: 0}} />
+          <button type="submit" style={{width:'auto', whiteSpace: 'nowrap', padding: '0 30px'}}>+ Создать</button>
+        </form>
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:20}}>
+        {myGroups.map(g => (
+          <div key={g.id} className="card" style={{position: 'relative', border:'1px solid #e2e8f0', padding: '30px 20px', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'}}>
+            <div onClick={()=>setCurrentGroup(g)} style={{cursor:'pointer', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'}}>
+              <span style={{fontSize: '32px'}}>📁</span>
+              <h3 style={{margin: 0, fontSize: '18px', color: '#2d3748'}}>{g.title}</h3>
+            </div>
+            <span
+              onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g.id, g.title); }}
+              style={{position: 'absolute', top: '12px', right: '12px', cursor: 'pointer', opacity: 0.4, fontSize: '14px', padding: '4px'}}
+              title="Удалить группу"
+            >
+              ❌
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
   return (
